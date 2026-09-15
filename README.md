@@ -19,3 +19,8 @@ Serve the project with any local PHP server:
 ```bash
 php -S localhost:8000 -t task-board
 ```
+
+## Official links
+
+- Portfolio: https://rdwan.dev
+- Project page: https://rdwan.dev/projects/17-fullstack-mini-projects.html
