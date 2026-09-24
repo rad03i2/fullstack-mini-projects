@@ -1,31 +1,17 @@
 <?php
-$tasks = [
-    ['title' => 'Design homepage', 'status' => 'done'],
-    ['title' => 'Build API route', 'status' => 'progress'],
-    ['title' => 'Write README', 'status' => 'todo'],
-];
-function e(string $v): string { return htmlspecialchars($v, ENT_QUOTES, 'UTF-8'); }
-?>
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Task Board</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-<main>
-    <h1>Fullstack Task Board</h1>
-    <section class="board">
-        <?php foreach ($tasks as $task): ?>
-            <article class="card">
-                <strong><?= e($task['title']) ?></strong>
-                <span><?= e($task['status']) ?></span>
-            </article>
-        <?php endforeach; ?>
-    </section>
-</main>
-<script src="app.js"></script>
-</body>
-</html>
+declare(strict_types=1); session_start(); require __DIR__.'/bootstrap.php';
+$db=db(); $error='';
+if($_SERVER['REQUEST_METHOD']==='POST'){ verify_csrf(); $action=(string)($_POST['action']??''); try {
+ if($action==='create'){ $title=input('title'); if($title==='') throw new InvalidArgumentException('Title is required.'); $status=input('status',20); $priority=input('priority',20); if(!in_array($status,['todo','progress','done'],true)||!in_array($priority,['low','medium','high'],true)) throw new InvalidArgumentException('Invalid status or priority.'); $s=$db->prepare('INSERT INTO tasks(title,description,status,priority) VALUES(?,?,?,?)'); $s->execute([$title,input('description',500),$status,$priority]); redirect_home(); }
+ if($action==='update'){ $id=filter_input(INPUT_POST,'id',FILTER_VALIDATE_INT); $status=input('status',20); if(!$id||!in_array($status,['todo','progress','done'],true)) throw new InvalidArgumentException('Invalid update.'); $s=$db->prepare('UPDATE tasks SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?'); $s->execute([$status,$id]); redirect_home(); }
+ if($action==='delete'){ $id=filter_input(INPUT_POST,'id',FILTER_VALIDATE_INT); if(!$id) throw new InvalidArgumentException('Invalid task.'); $s=$db->prepare('DELETE FROM tasks WHERE id=?'); $s->execute([$id]); redirect_home(); }
+ } catch(Throwable $ex){ $error=$ex->getMessage(); }}
+$filter=$_GET['status']??'all'; $allowed=['all','todo','progress','done']; if(!in_array($filter,$allowed,true)) $filter='all';
+if($filter==='all'){ $tasks=$db->query('SELECT * FROM tasks ORDER BY CASE priority WHEN "high" THEN 1 WHEN "medium" THEN 2 ELSE 3 END,id DESC')->fetchAll(); } else { $s=$db->prepare('SELECT * FROM tasks WHERE status=? ORDER BY id DESC'); $s->execute([$filter]); $tasks=$s->fetchAll(); }
+$counts=['todo'=>0,'progress'=>0,'done'=>0]; foreach($db->query('SELECT status,COUNT(*) n FROM tasks GROUP BY status') as $r) $counts[$r['status']]=(int)$r['n'];
+?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title><?=e(APP_NAME)?></title><link rel="stylesheet" href="style.css"></head><body><main><header><div><p class="eyebrow">FULLSTACK MINI PROJECT</p><h1>TaskBoard Mini</h1><p>Fast, local task tracking with SQLite persistence.</p></div><button id="theme" type="button" aria-label="Toggle theme">◐</button></header>
+<?php if($error):?><div class="error" role="alert"><?=e($error)?></div><?php endif;?>
+<section class="stats"><?php foreach($counts as $k=>$v):?><div><strong><?=$v?></strong><span><?=e(ucfirst($k))?></span></div><?php endforeach;?></section>
+<section class="panel"><h2>Add task</h2><form method="post" class="create"><input type="hidden" name="csrf" value="<?=e(csrf())?>"><input type="hidden" name="action" value="create"><label>Title<input name="title" required maxlength="120" placeholder="What needs to be done?"></label><label>Description<input name="description" maxlength="500" placeholder="Optional details"></label><label>Status<select name="status"><option value="todo">To do</option><option value="progress">In progress</option><option value="done">Done</option></select></label><label>Priority<select name="priority"><option>medium</option><option>high</option><option>low</option></select></label><button>Add task</button></form></section>
+<nav class="filters" aria-label="Task filters"><?php foreach($allowed as $f):?><a class="<?=$filter===$f?'active':''?>" href="?status=<?=$f?>"><?=e(ucfirst($f))?></a><?php endforeach;?></nav>
+<section class="board"><?php if(!$tasks):?><div class="empty">No tasks in this view.</div><?php endif;?><?php foreach($tasks as $task):?><article class="card priority-<?=e($task['priority'])?>"><div class="card-top"><span class="badge"><?=e($task['priority'])?></span><small>#<?=e((string)$task['id'])?></small></div><h3><?=e($task['title'])?></h3><?php if($task['description']!==''):?><p><?=e($task['description'])?></p><?php endif;?><form method="post" class="actions"><input type="hidden" name="csrf" value="<?=e(csrf())?>"><input type="hidden" name="id" value="<?=e((string)$task['id'])?>"><select name="status" aria-label="Status"><?php foreach(['todo'=>'To do','progress'=>'In progress','done'=>'Done'] as $v=>$label):?><option value="<?=$v?>" <?=$task['status']===$v?'selected':''?>><?=$label?></option><?php endforeach;?></select><button name="action" value="update">Save</button><button class="danger" name="action" value="delete" data-confirm="Delete this task?">Delete</button></form></article><?php endforeach;?></section><footer>Built by Radwan Abdulhadi Ahmed · رضوان عبدالهادي أحمد · @rad03i2</footer></main><script src="app.js"></script></body></html>

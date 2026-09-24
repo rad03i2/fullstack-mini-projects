@@ -1,5 +1,1 @@
-document.querySelectorAll('.card').forEach((card) => {
-  card.addEventListener('click', () => {
-    card.classList.toggle('selected');
-  });
-});
+const root=document.documentElement;const saved=localStorage.getItem('taskboard-theme');if(saved==='dark')root.classList.add('dark');document.querySelector('#theme').addEventListener('click',()=>{root.classList.toggle('dark');localStorage.setItem('taskboard-theme',root.classList.contains('dark')?'dark':'light')});document.querySelectorAll('[data-confirm]').forEach(button=>button.addEventListener('click',event=>{if(!confirm(button.dataset.confirm))event.preventDefault()}));
